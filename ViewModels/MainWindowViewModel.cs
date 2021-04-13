@@ -86,6 +86,7 @@ namespace KmlToJson.ViewModels
                     OutputA();
                     break;
                 case "2":
+                    OutputB();
                     break;
             }
         });
@@ -175,6 +176,28 @@ namespace KmlToJson.ViewModels
             string contentToWrite = sb.ToString();
             File.WriteAllText(OutputJsonPath, contentToWrite);
             LogPrependLine("JSON 型 A 輸出成功。");
+        }
+
+        void OutputB()
+        {
+            LoadData();
+
+            var sb = new StringBuilder();
+            sb.AppendLine("[");
+
+            foreach (var site in Sites)
+            {
+                sb.AppendLine($"['{site.Name}', '{site.Name} 站。集電箱。', 'site', {site.Latitude}, {site.Longitude}, 0],");
+                foreach (var ins in site.Instruments)
+                {
+                    sb.AppendLine($"['{ins.Name}', '{ins.Name}。隸屬於「{site.Name}」。', '{ins.Type.Name}', {ins.Latitude}, {ins.Longitude}, 0],");
+                }
+            }
+
+            sb.AppendLine("]");
+            string contentToWrite = sb.ToString();
+            File.WriteAllText(OutputJsonPath, contentToWrite);
+            LogPrependLine("JSON 型 B 輸出成功。");
         }
 
         void LogPrependLine(string msg)
