@@ -57,7 +57,7 @@ namespace KmlToJson.ViewModels
         public ICommand BrowseInputGeoCommand => new DelegateCommand(()=> 
         {
             var openFileDialog = new OpenFileDialog();
-            openFileDialog.Filter = "GeoMap Files|*.kml;*.kms";
+            openFileDialog.Filter = "GeoMap Files|*.kml;*.kmz";
             if (openFileDialog.ShowDialog() == true)
             {
                 InputGeoPath = openFileDialog.FileName;
@@ -83,13 +83,18 @@ namespace KmlToJson.ViewModels
                 default:
                     break;
                 case "1":
-                    OutputA();
+                    OutputJson_A();
                     break;
                 case "2":
-                    OutputB();
+                    OutputJson_B();
+                    break;
+                case "CeciRetainingWallLine":
+                    OutputJson_CeciRetainingWallLine();
                     break;
             }
         });
+
+        public List<CeciRetainingWallLine> CeciRetainingWallLine_items { get; private set; }
 
         public MainWindowViewModel()
         {
@@ -97,7 +102,7 @@ namespace KmlToJson.ViewModels
             Sites = new List<GMSite>();
         }
 
-        void LoadData()
+        void LoadSiteAndInstrumentsData()
         {
             Sites.Clear();
             InsTypes.Clear();
@@ -156,9 +161,9 @@ namespace KmlToJson.ViewModels
             }
         }
 
-        void OutputA()
+        void OutputJson_A()
         {
-            LoadData();
+            LoadSiteAndInstrumentsData();
 
             var sb = new StringBuilder();
             sb.AppendLine("[");
@@ -178,9 +183,9 @@ namespace KmlToJson.ViewModels
             LogPrependLine("JSON 型 A 輸出成功。");
         }
 
-        void OutputB()
+        void OutputJson_B()
         {
-            LoadData();
+            LoadSiteAndInstrumentsData();
 
             var sb = new StringBuilder();
             sb.AppendLine("[");
@@ -198,6 +203,94 @@ namespace KmlToJson.ViewModels
             string contentToWrite = sb.ToString();
             File.WriteAllText(OutputJsonPath, contentToWrite);
             LogPrependLine("JSON 型 B 輸出成功。");
+        }
+
+        void OutputJson_CeciRetainingWallLine()
+        {
+            LoadData_CeciRetainingWallLine();
+
+            var sb = new StringBuilder();
+            sb.Append("let ceciRetainingWallDataItems = ");
+
+            string inner = System.Text.Json.JsonSerializer.Serialize(CeciRetainingWallLine_items, new JsonSerializerOptions { WriteIndented = true });
+            sb.AppendLine(inner);
+
+            //foreach (var site in Sites)
+            //{
+            //    sb.AppendLine($"['{site.Name}', '{site.Name} 站。集電箱。', 'site', {site.Latitude}, {site.Longitude}, 0],");
+            //    foreach (var ins in site.Instruments)
+            //    {
+            //        sb.AppendLine($"['{ins.Name}', '{ins.Name}。隸屬於「{site.Name}」。', '{ins.Type.Name}', {ins.Latitude}, {ins.Longitude}, 0],");
+            //    }
+            //}
+
+            string contentToWrite = sb.ToString();
+            File.WriteAllText(OutputJsonPath, contentToWrite);
+
+            LogPrependLine("JSON 型 CECI擋土牆 輸出成功。");
+        }
+
+        void LoadData_CeciRetainingWallLine()
+        {
+            using (FileStream fs = new FileStream(InputGeoPath, FileMode.Open))
+            {
+                var kmlF = KmlFile.Load(fs);
+                var kmlR = kmlF.Root as Kml;
+                if (kmlR != null)
+                {
+                    var container = kmlR.Feature as Container;
+                    var siteFeatures = container.Features;
+
+                    CeciRetainingWallLine_items = new List<CeciRetainingWallLine>();
+
+                    foreach (var siteFeature in siteFeatures)
+                    {
+                        var siteFolder = siteFeature as Folder;
+                        foreach (var fPm in siteFolder.Features)
+                        {
+                            var item = new CeciRetainingWallLine();
+
+                            var placemark = fPm as Placemark;
+
+                            if (placemark.ExtendedData != null)
+                            {
+                                var schemalD = placemark.ExtendedData.SchemaData.FirstOrDefault();
+                                foreach (var simpleData in schemalD.SimpleData)
+                                {
+                                    switch (simpleData.Name)
+                                    {
+                                        case "MSISID":
+                                            item.Url = simpleData.Text;
+                                            break;
+
+                                        case "LEVEL":
+                                            item.Level = simpleData.Text;
+                                            break;
+
+                                        case "Url":
+                                            item.Url = simpleData.Text;
+                                            break;
+
+                                        default:
+                                            break;
+                                    }
+                                }
+                            }
+
+                            var mg = placemark.Geometry as MultipleGeometry;
+                            var line = mg.Geometry.FirstOrDefault() as LineString;
+
+                            foreach (var dotOfLine in line.Coordinates)
+                            {
+                                item.LineDots.Add(dotOfLine);
+                            }
+
+                            CeciRetainingWallLine_items.Add(item);
+                        }
+                    }
+
+                }
+            }
         }
 
         void LogPrependLine(string msg)
