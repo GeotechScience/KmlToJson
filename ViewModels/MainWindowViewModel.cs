@@ -91,8 +91,145 @@ namespace KmlToJson.ViewModels
                 case "CeciRetainingWallLine":
                     OutputJson_CeciRetainingWallLine();
                     break;
+                case "ExtractTextPlace":
+                    ExtractFoldersContainsName("文字");
+                    break;
+                case "ExtractNameCoordToArray":
+                    ExtractNameCoordToArray();
+                    break;
+                case "FPPT_ExtractNameCoordToArray":
+                    FPPT_ExtractNameCoordToArray();
+                    break;
             }
         });
+
+        private void FPPT_ExtractNameCoordToArray()
+        {
+            using (FileStream fs = new FileStream(InputGeoPath, FileMode.Open))
+            {
+
+
+                var kmlF = KmlFile.Load(fs);
+                var kmlR = (kmlF.Root as SharpKml.Dom.Kml).Feature as Folder;
+
+                var listPointsWithName = new List<PointWithNameSimple>();
+
+                if (kmlR != null)
+                {
+                    // var container = kmlR.Feature as Container;
+                    var features = kmlR.Features;
+                    
+                    foreach (var feature in features)
+                    {
+                        var placemark = feature as Placemark;
+                        if (placemark != null)
+                        {
+                            var ptWithName = new PointWithNameSimple();
+                            var pm = placemark;
+                            ptWithName.Name = pm.Name;
+
+                            var geo = pm.Geometry as SharpKml.Dom.Point;
+                            ptWithName.Longi = (float)geo.Coordinate.Longitude;
+                            ptWithName.Lati = (float)geo.Coordinate.Latitude;
+                            listPointsWithName.Add(ptWithName);
+                            // ofmc.Coords = geo.;
+                            // ofmc.Coords = folder.Features.First().
+
+                            // listFolders.Add(new OneFolderMultiCoords { Coords })
+                        }
+                    }
+                    //var fakeKML = KmlFile.Create(fakeKMLDoc, true);
+
+
+                    //using (var memStream = new MemoryStream())
+                    //{
+                    //    fakeKML.Save(memStream);
+
+                    //    //using (var sR = new StreamReader(memStream))
+                    //    //{
+                    //    //    string text = sR.ReadToEnd();
+                    //    //    MessageBox.Show(text);
+                    //    //}
+
+                    //    string text = Encoding.UTF8.GetString(memStream.ToArray());
+                    //    // Console.WriteLine(text);
+                    //    Clipboard.SetText(text);
+                    //    MessageBox.Show("Copied to clipboard!");
+                    //}
+
+
+
+                    string json = System.Text.Json.JsonSerializer.Serialize(listPointsWithName, new JsonSerializerOptions { WriteIndented = true });
+                    // Clipboard.SetText(json);
+                    File.WriteAllText(OutputJsonPath, json);
+                    LogPrependLine("JSON Name 輸出成功。");
+                }
+            }
+        }
+
+        private void ExtractNameCoordToArray()
+        {
+            using (FileStream fs = new FileStream(InputGeoPath, FileMode.Open))
+            {
+
+
+                var kmlF = KmlFile.Load(fs);
+                var kmlR = kmlF.Root as Document;
+
+                var listPointsWithName = new List<PointWithNameSimple>();
+
+                if (kmlR != null)
+                {
+                    // var container = kmlR.Feature as Container;
+                    var features = kmlR.Features;
+
+                    foreach (var feature in features)
+                    {
+                        var folder = feature as Folder;
+                        if (folder != null)
+                        {
+                            var ptWithName = new PointWithNameSimple();
+                            var pm = folder.Features.First() as Placemark;
+                            ptWithName.Name = pm.Name;
+
+                            var geo = pm.Geometry as SharpKml.Dom.Point;
+                            ptWithName.Longi = (float) geo.Coordinate.Longitude;
+                            ptWithName.Lati = (float) geo.Coordinate.Latitude;
+                            listPointsWithName.Add(ptWithName);
+                            // ofmc.Coords = geo.;
+                            // ofmc.Coords = folder.Features.First().
+
+                            // listFolders.Add(new OneFolderMultiCoords { Coords })
+                        }
+                    }
+                    //var fakeKML = KmlFile.Create(fakeKMLDoc, true);
+
+
+                    //using (var memStream = new MemoryStream())
+                    //{
+                    //    fakeKML.Save(memStream);
+
+                    //    //using (var sR = new StreamReader(memStream))
+                    //    //{
+                    //    //    string text = sR.ReadToEnd();
+                    //    //    MessageBox.Show(text);
+                    //    //}
+
+                    //    string text = Encoding.UTF8.GetString(memStream.ToArray());
+                    //    // Console.WriteLine(text);
+                    //    Clipboard.SetText(text);
+                    //    MessageBox.Show("Copied to clipboard!");
+                    //}
+
+                    
+
+                    string json = System.Text.Json.JsonSerializer.Serialize(listPointsWithName, new JsonSerializerOptions { WriteIndented = true });
+                    // Clipboard.SetText(json);
+                    File.WriteAllText(OutputJsonPath, json);
+                    LogPrependLine("JSON Name 輸出成功。");
+                }
+            }
+        }
 
         public List<CeciRetainingWallLine> CeciRetainingWallLine_items { get; private set; }
 
@@ -287,6 +424,67 @@ namespace KmlToJson.ViewModels
 
                             CeciRetainingWallLine_items.Add(item);
                         }
+                    }
+
+                }
+            }
+        }
+
+        void ExtractFoldersContainsName(string name)
+        {
+            using (FileStream fs = new FileStream(InputGeoPath, FileMode.Open))
+            {
+                
+
+                var kmlF = KmlFile.Load(fs);
+                var kmlR = kmlF.Root as Kml;
+
+                var fakeKMLDoc = new Document();
+                //var rootFolder = new Folder();
+                //fakeKMLDoc.AddFeature(rootFolder);
+
+                if (kmlR != null)
+                {
+                    var container = kmlR.Feature as Container;
+                    var features = container.Features;
+
+                    foreach (var feature in features)
+                    {
+                        var folder = feature as Folder;
+                        if (folder.Features != null && folder.Features.Count > 0)
+                        {
+                            foreach (var subFeature in folder.Features)
+                            {
+                                
+                                var subFolder = subFeature as Folder;
+                                if (subFolder != null)
+                                {
+                                    if (subFolder.Name.Contains(name)) 
+                                    {
+                                        fakeKMLDoc.AddFeature(subFolder.Clone());
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+                    var fakeKML = KmlFile.Create(fakeKMLDoc, true);
+
+
+                    using (var memStream = new MemoryStream())
+                    {
+                        fakeKML.Save(memStream);
+
+                        //using (var sR = new StreamReader(memStream))
+                        //{
+                        //    string text = sR.ReadToEnd();
+                        //    MessageBox.Show(text);
+                        //}
+                        
+                        string text = Encoding.UTF8.GetString(memStream.ToArray());
+                        // Console.WriteLine(text);
+                        Clipboard.SetText(text);
+                        MessageBox.Show("Copied to clipboard!");
                     }
 
                 }
